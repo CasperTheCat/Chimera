@@ -5,23 +5,44 @@ project (Chimera VERSION 0.0.1 DESCRIPTION "Project Chimera")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-set(Boost_USE_STATIC_LIBS TRUE)
-#set(Boost_USE_MULTITHREADED TRUE)
-#set(Boost_USE_STATIC_RUNTIME TRUE)
+# Windows
+IF (WIN32)
+  set(dxtex  ${CMAKE_SOURCE_DIR}/extern/DirectXTex)
+  set(dxtexl  DirectXTex)
+  add_subdirectory(${CMAKE_SOURCE_DIR}/extern/DirectXTex)
+ELSE()
+  set(dxtex "")
+  set(dxtexl  "")
+ENDIF()
 
-FIND_PACKAGE(Boost COMPONENTS system filesystem REQUIRED)
 
 set(SourceFiles
 ./core/Source.cpp
 ./core/Process.cpp
+./core/ImageProcessing/Image.cpp
+./core/ImageProcessing/ImageConverters.cpp
+#./core/DX/DirectXRender.cpp
 )
 
 set(HeaderFiles
 ./core/Process.h
 ./core/Util.h
+./core/Format.h
+./core/ImageProcessing/Image.h
+./core/ImageProcessing/ImageConverters.h
+#./core/DX/DirectXRender.h
 )
 
 
-INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIRS} )
+include_directories(
+    ${CMAKE_SOURCE_DIR}/extern/glm
+    ${dxtex}
+)
+
+add_subdirectory(${CMAKE_SOURCE_DIR}/extern/glm)
+
 add_executable(Chimera ${HeaderFiles} ${SourceFiles})
-TARGET_LINK_LIBRARIES(Chimera ${Boost_LIBRARIES})
+TARGET_LINK_LIBRARIES(Chimera 
+    glm
+    ${dxtexl}
+)

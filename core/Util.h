@@ -11,6 +11,8 @@
 #define PRINT_DEBUG(x)
 #endif
 
+
+
 /// A static constant for a half float with a value of zero.
 static const uint16_t ZERO = 0x0000;
 

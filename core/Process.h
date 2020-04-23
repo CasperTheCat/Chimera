@@ -1,93 +1,112 @@
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <queue>
+#include <unordered_map>
 
-struct FPosition // Full Size 12B
-{
-	union
-	{
-		float x;
-		float u;
-		float i;
-	};
-	union
-	{
-		float y;
-		float v;
-		float j;
-	};
-	union
-	{
-		float z;
-		float s;
-		float k;
-	};
-};
 
-struct FTexCoord // Full Size 8B
-{
-	union
-	{
-		float x;
-		float u;
-		float i;
-	};
-	union
-	{
-		float y;
-		float v;
-		float j;
-	};
-};
+#define GLM_SWIZZLE
+#include <glm/mat4x4.hpp>
+#include <glm\ext\matrix_float4x4.hpp>
+#include <glm/detail/type_mat4x4.hpp>
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
+#include <glm/vec2.hpp>
 
-struct FTangents // 12 Bytes
-{
-	union
-	{
-		float x;
-		float u;
-		float i;
-	};
-	union
-	{
-		float y;
-		float v;
-		float j;
-	};
-	union
-	{
-		float z;
-		float s;
-		float k;
-	};
-};
 
-struct FBlendWeights // 16 Bytes
-{
-	union
-	{
-		float x;
-		float u;
-		float i;
-	};
-	union
-	{
-		float y;
-		float v;
-		float j;
-	};
-	union
-	{
-		float z;
-		float s;
-		float k;
-	};
-	union
-	{
-		float w;
-		float t;
-		float l;
-	};
-};
+typedef glm::vec3 FPosition;
+
+//struct FPosition // Full Size 12B
+//{
+//	union
+//	{
+//		float x;
+//		float u;
+//		float i;
+//	};
+//	union
+//	{
+//		float y;
+//		float v;
+//		float j;
+//	};
+//	union
+//	{
+//		float z;
+//		float s;
+//		float k;
+//	};
+//};
+
+typedef glm::vec2 FTexCoord;
+
+//struct FTexCoord // Full Size 8B
+//{
+//	union
+//	{
+//		float x;
+//		float u;
+//		float i;
+//	};
+//	union
+//	{
+//		float y;
+//		float v;
+//		float j;
+//	};
+//};
+
+typedef glm::vec4 FTangents;
+
+//struct FTangents // 12 Bytes
+//{
+//	union
+//	{
+//		float x;
+//		float u;
+//		float i;
+//	};
+//	union
+//	{
+//		float y;
+//		float v;
+//		float j;
+//	};
+//	union
+//	{
+//		float z;
+//		float s;
+//		float k;
+//	};
+//};
+
+typedef glm::vec4 FBlendWeights;
+
+//struct FBlendWeights // 16 Bytes
+//{
+//	union
+//	{
+//		float x;
+//		float u;
+//		float i;
+//	};
+//	union
+//	{
+//		float y;
+//		float v;
+//		float j;
+//	};
+//	union
+//	{
+//		float z;
+//		float s;
+//		float k;
+//	};
+//	union
+//	{
+//		float w;
+//		float t;
+//		float l;
+//	};
+//};
 
 struct FBoneIndices // 8 Bytes
 {
@@ -116,6 +135,34 @@ struct FBoneIndices // 8 Bytes
 		uint16_t l;
 	};
 };
+
+
+struct FHashKey
+{
+	uint64_t u1;
+	uint64_t u2;
+	uint64_t u3;
+	uint64_t u4;
+
+	bool operator==(const FHashKey& other) const
+	{
+		return this->u1 == other.u1
+			&& this->u2 == other.u2
+			&& this->u3 == other.u3
+			&& this->u4 == other.u4;
+	}
+};
+
+namespace std {
+	template<>
+	struct hash<FHashKey>
+	{
+		std::size_t operator()(const FHashKey& k) const
+		{
+			return k.u1 ^ k.u2 + k.u3 ^ k.u4;
+		}
+	};
+}
 
 
 
@@ -155,6 +202,7 @@ struct ABlackDesertVertexType// : private AChimeraVertexType
 	FTangents GetTangents();
 	FBlendWeights GetBlendWeights();
 	FBoneIndices GetBoneIndices();
+	glm::vec4 GetColour();
 };
 
 /*
@@ -181,13 +229,13 @@ struct ANierAutomataVertexType// : public AChimeraVertexType
 // Provides a conversion function for this type to the Chimera Type
 
 
-// ONLY FOR BDO
-//typedef int16_t IndexBufferType;
-//typedef ABlackDesertVertexType VBStruct;
+//// ONLY FOR BDO
+typedef int16_t IndexBufferType;
+typedef ABlackDesertVertexType VBStruct;
 
 // NIER
-typedef int32_t IndexBufferType;
-typedef ANierAutomataVertexType VBStruct;
+//typedef int32_t IndexBufferType;
+//typedef ANierAutomataVertexType VBStruct;
 
 /*
  * Generic Chimera Vertex Structure
@@ -196,19 +244,23 @@ typedef ANierAutomataVertexType VBStruct;
  */
 struct FChimeraVertex
 {
-	FPosition Position;
-	FTexCoord TexCoords;
-	FTangents Tangents;
+	int32_t indexBufferLocale;
+	glm::vec3 Position;
+	glm::vec2 TexCoords;
+	glm::vec4 Tangents;
 	FBoneIndices BoneIndices;
-	FBlendWeights BlendWeights;
+	glm::vec4 BlendWeights;
+	glm::vec4 Colour;
 
-	FChimeraVertex(FPosition&& pos, FTexCoord&& tex, FTangents&& tans, FBoneIndices&& bis, FBlendWeights&& weights)
+	FChimeraVertex(int32_t locale, FPosition&& pos, FTexCoord&& tex, FTangents&& tans, FBoneIndices&& bis, FBlendWeights&& weights, glm::vec4 &&vColour)
 	{
+		indexBufferLocale = locale;
 		Position = std::move(pos);
 		TexCoords = std::move(tex);
 		Tangents = std::move(tans);
 		BoneIndices = std::move(bis);
 		BlendWeights = std::move(weights);
+		Colour = std::move(vColour);
 	}
 };
 
@@ -278,4 +330,32 @@ struct VertexShaderInformation
 	AnimDataFormat AnimationDataFormat; // 1	/
 };
 
-void Chimera_Process(std::queue<boost::filesystem::path> &fQueue);
+struct FBDOShaderBindings
+{
+	// VB1 -> V6,7,8,9,10,11,12
+	std::vector<glm::vec4> TexCoord1;
+	std::vector<glm::vec4> TexCoord2;
+	std::vector<glm::vec4> TexCoord3;
+	std::vector<glm::vec4> TexCoord4;
+	std::vector<glm::vec4> TexCoord5;
+	std::vector<glm::vec4> TexCoord6;
+	std::vector<glm::vec4> TexCoord7;
+
+	std::vector<glm::vec4> cb0;
+	std::vector<glm::vec4> cb2;
+	std::vector<glm::vec4> cb3;
+
+	uint32_t Offset;
+	uint32_t meshID;
+};
+
+
+void Chimera_ProcessVertexBuffer(const std::filesystem::path& item);
+
+void LoadIndexBuffer(const std::filesystem::path& item, IndexBufferInformation& indexBuffer);
+
+void Chimera_Process(std::queue<std::filesystem::path> &fQueue, std::unordered_map<FHashKey, std::filesystem::path>& fileMap);
+
+std::vector<glm::vec4> LoadSkinMatrix(std::filesystem::path& path, std::unordered_map<FHashKey, std::filesystem::path>& fileMap);
+std::vector<uint32_t> GetCallOffset(std::filesystem::path& path, std::unordered_map<FHashKey, std::filesystem::path>& fileMap);
+void BuildBDOBindings(std::filesystem::path& path, std::unordered_map<FHashKey, std::filesystem::path>& fileMap, FBDOShaderBindings& stBinding);
