@@ -224,14 +224,41 @@ struct ANierAutomataVertexType// : public AChimeraVertexType
 	FTangents GetTangents();
 	FBlendWeights GetBlendWeights();
 	FBoneIndices GetBoneIndices();
+	glm::vec4 GetColour();
+};
+
+struct AOblivionVertexType// : public AChimeraVertexType
+{
+	float x;
+	float y;
+	float z;
+	
+	glm::vec3 BlendWeights;
+	uint8_t BlendIndices[4];
+
+	glm::vec3 Normals;
+	glm::vec4 Colour;
+	glm::vec2 TexCoord;
+	glm::vec3 Tangents;
+	glm::vec3 BiNormals;
+
+
+	FPosition GetPosition();
+	FTexCoord GetTexCoord();
+	FTangents GetTangents();
+	FBlendWeights GetBlendWeights();
+	FBoneIndices GetBoneIndices();
+	glm::vec4 GetColour();
 };
 
 // Provides a conversion function for this type to the Chimera Type
 
+typedef int16_t IndexBufferType;
+typedef AOblivionVertexType VBStruct;
 
 //// ONLY FOR BDO
-typedef int16_t IndexBufferType;
-typedef ABlackDesertVertexType VBStruct;
+//typedef int16_t IndexBufferType;
+//typedef ABlackDesertVertexType VBStruct;
 
 // NIER
 //typedef int32_t IndexBufferType;
@@ -315,6 +342,8 @@ struct DrawBufferInformation
 	uint32_t IndexCount;
 	uint32_t StartIndex;
 	int32_t BaseVertex;
+	uint32_t CallType;
+	uint32_t PrimitiveType;
 };
 /*
 * Vertex Shader Structure

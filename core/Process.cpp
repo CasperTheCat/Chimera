@@ -2453,7 +2453,6 @@ void writeMeshOBJ
 }
 
 
-
 void createModel
 (
 	VertexBufferInformation &vbi,
@@ -2468,7 +2467,7 @@ void createModel
 	std::vector<uint32_t> indices;
 	const auto ptr = reinterpret_cast<VBStruct *>((vbi.VertexBufferData));
 
-	//PRINT_DEBUG("Struct is " + std::to_string(sizeof(VBStruct)) + " bytes vs " + std::to_string(vbi.VertexStructureWidth));
+	PRINT_DEBUG("Struct is " + std::to_string(sizeof(VBStruct)) + " bytes vs " + std::to_string(vbi.VertexStructureWidth));
 
 	if (dbi.StartIndex > ibi.BufferSize)
 	{
@@ -2657,6 +2656,52 @@ FBoneIndices ANierAutomataVertexType::GetBoneIndices()
 	retVal.w = blendIndices_uint[3];
 
 	return retVal;
+}
+
+glm::vec4 ANierAutomataVertexType::GetColour()
+{
+	return glm::vec4(0);
+}
+
+FPosition AOblivionVertexType::GetPosition()
+{
+	FPosition pos;
+	pos.x = this->x;
+	pos.y = this->y;
+	pos.z = this->z;
+	return pos;
+}
+
+FTexCoord AOblivionVertexType::GetTexCoord()
+{
+	return TexCoord;
+}
+
+FTangents AOblivionVertexType::GetTangents()
+{
+	return glm::vec4(Tangents, 0);
+}
+
+FBlendWeights AOblivionVertexType::GetBlendWeights()
+{
+	return glm::vec4(BlendWeights, 0);
+}
+
+FBoneIndices AOblivionVertexType::GetBoneIndices()
+{
+	FBoneIndices retVal{};
+
+	retVal.x = BlendIndices[0];
+	retVal.y = BlendIndices[1];
+	retVal.z = BlendIndices[2];
+	retVal.w = BlendIndices[3];
+
+	return retVal;
+}
+
+glm::vec4 AOblivionVertexType::GetColour()
+{
+	return Colour;
 }
 
 void Chimera_ProcessRenderInfo(const std::filesystem::path& item)
@@ -2905,14 +2950,24 @@ void LoadDrawBuffer(const std::filesystem::path& item, DrawBufferInformation& dB
 
 		fileLoader.seekg(std::ios::beg, 0);
 
-		char byteBufferData[16];
-		fileLoader.read(byteBufferData, 16);
+		char byteBufferData[20];
+		memset(byteBufferData, 0, 20);
+
+		fileLoader.read(byteBufferData, fileSize);
 
 		auto asBuffer = reinterpret_cast<DrawBufferInformation*>(byteBufferData);
 
 		dBuffer.BaseVertex = asBuffer->BaseVertex;
 		dBuffer.IndexCount = asBuffer->IndexCount;
 		dBuffer.StartIndex = asBuffer->StartIndex;
+		dBuffer.CallType = asBuffer->CallType;
+		dBuffer.PrimitiveType = asBuffer->PrimitiveType;
+
+		// Catch the strange world that is D3D9
+		if (dBuffer.PrimitiveType == 4)
+		{
+			dBuffer.IndexCount *= 3;
+		}
 
 		PRINT_DEBUG("\tCall Type is " << reinterpret_cast<uint32_t*>(byteBufferData)[3]);
 
@@ -3146,6 +3201,48 @@ void Chimera_DX
 
 }
 
+
+void fixTriangeStrip(
+	std::vector<uint8_t> &incomingVerts,
+	std::vector<uint8_t> &incomingIndices
+)
+{
+	auto numTriangles = (incomingVerts.size() / sizeof(VBStruct)) - 2;
+	std::vector<uint8_t> verts;
+	verts.resize(numTriangles * 3 * sizeof(VBStruct));
+
+	std::vector<uint8_t> indices;
+	indices.resize(numTriangles * 3 * 2);
+
+	auto ivAsType = reinterpret_cast<VBStruct*>(incomingVerts.data());
+	auto vAsType = reinterpret_cast<VBStruct*>(verts.data());
+
+	auto iAsType = reinterpret_cast<uint16_t*>(indices.data());
+
+	for (int i = 0; i < numTriangles; i++)
+	{
+		if (i % 2) 
+		{
+			vAsType[i * 3 + 0] = ivAsType[i + 0];
+			vAsType[i * 3 + 1] = ivAsType[i + 1];
+			vAsType[i * 3 + 2] = ivAsType[i + 2];
+		}
+		else
+		{
+			vAsType[i * 3 + 0] = ivAsType[i + 0];
+			vAsType[i * 3 + 1] = ivAsType[i + 2];
+			vAsType[i * 3 + 2] = ivAsType[i + 1];
+		}
+
+		iAsType[i * 3 + 0] = i * 3 + 0;
+		iAsType[i * 3 + 1] = i * 3 + 1;
+		iAsType[i * 3 + 2] = i * 3 + 2;
+	}
+
+	std::swap(verts, incomingVerts);
+	std::swap(indices, incomingIndices);
+}
+
 void Chimera_Process(std::queue<std::filesystem::path> &fQueue, std::unordered_map<FHashKey, std::filesystem::path> &fileMap)
 {
 	uint32_t uTotalProcessed = 0;
@@ -3190,6 +3287,10 @@ void Chimera_Process(std::queue<std::filesystem::path> &fQueue, std::unordered_m
 		IndexBufferInformation ibi{};
 		DrawBufferInformation dbi{};
 
+		// Load Draw Info
+		auto drawPath = queueItem.parent_path() / "call.info";
+		LoadDrawBuffer(drawPath, dbi);
+
 		// Load IndexBuffer
 		auto indPath = queueItem.parent_path() / "index.buffer";
 		std::vector<uint8_t> indBuffer;
@@ -3201,9 +3302,6 @@ void Chimera_Process(std::queue<std::filesystem::path> &fQueue, std::unordered_m
 			continue;
 		}
 
-		ibi.IndexBufferData = reinterpret_cast<char*>(indBuffer.data());
-		ibi.BufferSize = indBuffer.size();
-
 		// Load Ourself
 		std::vector<uint8_t> vtxBuffer;
 		if (!Chimera_ProcessHashBuffer(queueItem, fileMap, vtxBuffer))
@@ -3213,13 +3311,20 @@ void Chimera_Process(std::queue<std::filesystem::path> &fQueue, std::unordered_m
 			continue;
 		}
 
+		// No good, very bad, absolutely awful function.
+		if (dbi.PrimitiveType == 5)
+		{
+			//fixTriangeStrip(vtxBuffer, indBuffer);
+		}
+
+		ibi.IndexBufferData = reinterpret_cast<char*>(indBuffer.data());
+		ibi.BufferSize = indBuffer.size();
+
 		vbi.VertexBufferData = reinterpret_cast<char*>(vtxBuffer.data());
-		vbi.VertexStructureWidth = 32;
+		vbi.VertexStructureWidth = sizeof(VBStruct);
 		vbi.BufferSize = vtxBuffer.size();
 
-		// Load Draw Info
-		auto drawPath = queueItem.parent_path() / "call.info";
-		LoadDrawBuffer(drawPath, dbi);
+
 
 		// Look for SRV in the folder
 		std::vector<glm::vec4> skinningMatrix = LoadSkinMatrix(queueItem.parent_path() / "vertex.0.srvbuffer", fileMap);
@@ -3427,6 +3532,4 @@ void BuildBDOBindings(std::filesystem::path& path, std::unordered_map<FHashKey, 
 /// BELOW IS CODE USED FOR PARSING VMRINFO FILES.
 /// I WILL MAKE A SWITCH FOR PROCESSING DRAW BASED OBJ
 /// RATHER THAN VB BASED
-
-
 
