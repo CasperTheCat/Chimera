@@ -3384,7 +3384,7 @@ std::vector<glm::vec4> LoadSkinMatrix(std::filesystem::path& path, std::unordere
 
 		// Clear this info too
 		uint64_t info;
-		fileLoader.read(reinterpret_cast<char*>(&hash), sizeof(uint64_t));
+		fileLoader.read(reinterpret_cast<char*>(&info), sizeof(uint64_t));
 
 		if (fileSize > 40)
 		{
@@ -3469,7 +3469,7 @@ void BuildBDOBindings(std::filesystem::path& path, std::unordered_map<FHashKey, 
 
 		// Clear this info too
 		uint64_t info;
-		fileLoader.read(reinterpret_cast<char*>(&hash), sizeof(uint64_t));
+		fileLoader.read(reinterpret_cast<char*>(&info), sizeof(uint64_t));
 
 		if (fileSize > 40)
 		{
