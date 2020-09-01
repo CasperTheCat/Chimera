@@ -42,6 +42,8 @@ void ApplySkin(
 	//if (verts.size() > vtxBindings.TexCoord1.size()) { return; }
 	if (vtxBindings.cb0.size() < 5) { return; }
 
+	if (vtxBindings.cb2.size() == 0 || vtxBindings.cb3.size() == 0) { return; }
+
 	// Crush the Mat4x4 to ID
 	vtxBindings.cb0[0] = Helper_IdentRowSafe(0);
 	vtxBindings.cb0[1] = Helper_IdentRowSafe(1);
@@ -2270,10 +2272,10 @@ void WritePoly
 	//plyStream << "property float red" << std::endl; // Colour
 	//plyStream << "property float green" << std::endl;
 	//plyStream << "property float blue" << std::endl;
-	plyStream << "property uchar red" << std::endl; // Colour
-	plyStream << "property uchar green" << std::endl;
-	plyStream << "property uchar blue" << std::endl;
-	//plyStream << "property float alpha" << std::endl;
+	plyStream << "property float red" << std::endl; // Colour
+	plyStream << "property float green" << std::endl;
+	plyStream << "property float blue" << std::endl;
+	plyStream << "property float alpha" << std::endl;
 	plyStream << "property float s" << std::endl; // Coords
 	plyStream << "property float t" << std::endl;
 	plyStream << "property float nx" << std::endl; // Colour
@@ -2304,9 +2306,13 @@ void WritePoly
 		plyStream << currentVert->Position.x << " " <<
 			currentVert->Position.y << " " <<
 			currentVert->Position.z << " " <<
-			uint32_t(currentVert->Colour.r * 256.f) << " " <<
-			uint32_t(currentVert->Colour.a * 256.f) << " " <<
-			uint32_t(currentVert->Colour.g * 256.f) << " " <<
+			//uint32_t(currentVert->Colour.r * 256.f) << " " <<
+			//uint32_t(currentVert->Colour.a * 256.f) << " " <<
+			//uint32_t(currentVert->Colour.g * 256.f) << " " <<
+			currentVert->Colour.r << " " <<
+			currentVert->Colour.b << " " <<
+			currentVert->Colour.g << " " <<
+			currentVert->Colour.a << " " <<
 			currentVert->TexCoords.x << " " <<
 			currentVert->TexCoords.y << " " <<
 
@@ -2943,7 +2949,7 @@ void LoadDrawBuffer(const std::filesystem::path& item, DrawBufferInformation& dB
 		// Read Size
 		const uint64_t fileSize = fileLoader.tellg();
 
-		if (fileSize < 16)
+		if (fileSize < 12)
 		{
 			return;
 		}
@@ -3046,6 +3052,8 @@ std::vector<uint8_t> LoadShader(const std::filesystem::path& item, std::unordere
 			}
 		}
 	}
+
+	return rVec;
 }
 
 bool Chimera_ProcessHashBuffer(const std::filesystem::path& item, std::unordered_map<FHashKey, std::filesystem::path>& fileMap, std::vector<uint8_t> &rVec)
@@ -3340,7 +3348,7 @@ void Chimera_Process(std::queue<std::filesystem::path> &fQueue, std::unordered_m
 		}
 		else
 		{
-			stVtxBinding.Offset = offsets[3]; // Each is a uint32, and we want the offset for VB1
+			stVtxBinding.Offset = dbi.BaseVertex;// offsets[3]; // Each is a uint32, and we want the offset for VB1
 			stVtxBinding.cb0 = LoadSkinMatrix(queueItem.parent_path() / "vertex.0.constbuffer", fileMap);
 			stVtxBinding.cb2 = LoadSkinMatrix(queueItem.parent_path() / "vertex.2.constbuffer", fileMap);
 			stVtxBinding.cb3 = LoadSkinMatrix(queueItem.parent_path() / "vertex.3.constbuffer", fileMap);
